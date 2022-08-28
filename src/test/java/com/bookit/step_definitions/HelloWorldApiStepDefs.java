@@ -15,14 +15,21 @@ import static org.junit.Assert.*;
 
 public class HelloWorldApiStepDefs {
 
+    String url = ConfigurationReader.getProperty("hello.world.api");
+    Response response;
+
     @Given("User sends get request to hello world api")
     public void user_sends_get_request_to_hello_world_api() {
+       response = given().accept(ContentType.JSON)
+                .when().get(url);
 
     }
 
     @Then("hello world api status code is {int}")
-    public void hello_world_api_status_code_is(Integer int1) {
-
+    public void hello_world_api_status_code_is(int expStatusCode) {
+        System.out.println("actual status code = " + response.statusCode());
+        System.out.println("expStatusCode = " + expStatusCode);
+        assertEquals(expStatusCode , response.statusCode());
     }
 
     @Then("hello world api response body contains {string}")
