@@ -33,8 +33,10 @@ public class HelloWorldApiStepDefs {
     }
 
     @Then("hello world api response body contains {string}")
-    public void hello_world_api_response_body_contains(String string) {
-
+    public void hello_world_api_response_body_contains(String expMessage) {
+        response.prettyPrint();
+        String actMessage = response.path("message");
+        assertEquals(expMessage, actMessage);
     }
 
 }
