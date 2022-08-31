@@ -10,6 +10,7 @@ import org.junit.runner.RunWith;
                   "html:target/default-html-reports"},
         features = "src/test/resources/features/",
         glue = "com/bookit/step_definitions/",
+        tags = "@bookItApi",
         dryRun = false
 )
 public class CukesRunner {
