@@ -6,11 +6,16 @@ import com.bookit.utilities.Environment;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.restassured.http.ContentType;
+import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import java.util.Map;
+
 import static org.junit.Assert.*;
 import static io.restassured.RestAssured.*;
+import static org.junit.Assert.assertEquals;
 
 public class BookApiStepDefs {
 
@@ -40,21 +45,40 @@ public class BookApiStepDefs {
         response = given().accept(ContentType.JSON)
                 .and().header("Authorization",  accessToken)
                 .when().get(baseUrl + endpoint);
+        response.then().log().all();
     }
 
     @Then("status code should be {int}")
-    public void status_code_should_be(Integer int1) {
-
+    public void status_code_should_be(int expStatusCode) {
+        assertEquals("Status code verification failed",expStatusCode, response.statusCode());
+        response.then().statusCode(expStatusCode);
     }
 
     @Then("content type is {string}")
-    public void content_type_is(String string) {
-
+    public void content_type_is(String expContentType) {
+        response.then().contentType(expContentType);
+        assertEquals("Content type verification failed. expected = " + expContentType +" but actual = " + response.contentType()
+                ,expContentType, response.contentType());
     }
 
+    /**
+         {
+             "id": 11516,
+             "firstName": "Barbabas",
+             "lastName": "Lyst",
+             "role": "teacher"
+         }
+     */
     @Then("role is {string}")
-    public void role_is(String string) {
+    public void role_is(String expRole) {
+        assertEquals(expRole, response.path("role"));
 
+        JsonPath jsonPath = response.jsonPath();
+        assertEquals(expRole, jsonPath.getString("role"));
+
+        //deserialization: json to map or json to pojo
+        Map<String, ?> responseMap = response.as(Map.class);
+        assertEquals(expRole, responseMap.get("role"));
     }
 
 }
