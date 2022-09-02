@@ -120,7 +120,7 @@ public class BookApiStepDefs {
 
     @When("Users sends POST request to {string} with following info:")
     public void users_sends_POST_request_to_with_following_info(String endpoint, Map<String, String> teamInfo) {
-        response =given().accept(ContentType.JSON)
+        response = given().accept(ContentType.JSON)
                 .and().queryParams(teamInfo)
                 .and().header("Authorization", accessToken)
                 .when().post(baseUrl + endpoint);
@@ -138,7 +138,7 @@ public class BookApiStepDefs {
         System.out.println("sql = " + sql);
         System.out.println("dbNewTeamMap = " + dbNewTeamMap);
 
-        assertThat(dbNewTeamMap.get("id"), equalTo((long)newTeamID));
+        assertThat(dbNewTeamMap.get("id"), equalTo((long) newTeamID));
         assertThat(dbNewTeamMap.get("name"), equalTo(newRecordMap.get("team-name")));
         assertThat(dbNewTeamMap.get("batch_number").toString(), equalTo(newRecordMap.get("batch-number")));
     }
@@ -151,9 +151,11 @@ public class BookApiStepDefs {
                 .and().pathParam("id", teamId)
                 .when().delete(baseUrl + "/api/teams/{id}")
                 .then().log().all();
-    }    @And("User sends GET request to {string} with {string}")
+    }
+
+    @And("User sends GET request to {string} with {string}")
     public void user_sends_get_request_to_with(String endPoints, String teamId) {
-        response =given().accept(ContentType.JSON)
+        response = given().accept(ContentType.JSON)
                 .and().pathParam("id", teamId)
                 .and().header("Authorization", accessToken)
                 .when().get(baseUrl + endPoints);
@@ -173,9 +175,53 @@ public class BookApiStepDefs {
         System.out.println("sql = " + sql);
         System.out.println("dbNewTeamMap = " + dbNewTeamMap);
 
-        assertThat(dbNewTeamMap.get("id"), equalTo((long)id));
+        assertThat(dbNewTeamMap.get("id"), equalTo((long) id));
         assertThat(dbNewTeamMap.get("name"), equalTo(teamName));
+    }
 
+
+    @Then("Database should contain same student info")
+    public void database_should_contain_same_student_info() {
+        int newStudentId = response.path("entryiId");
+        String sql = "select * from users where id = " + newStudentId;
+        Map<String, Object> dbStudentMap = DBUtils.getRowMap(sql);
+        System.out.println("dbStudentMap = " + dbStudentMap);
+
+        assertThat(newRecordMap.get("first-name"), equalTo(dbStudentMap.get("firstname")));
+        assertThat(newRecordMap.get("last-name"), equalTo(dbStudentMap.get("lastname")));
+        assertThat(newRecordMap.get("email"),is(dbStudentMap.get("email")));
+        assertThat(newRecordMap.get("role"),is(dbStudentMap.get("role")));
+    }
+
+    @Then("User should able to login bookit app using {string} and {string}")
+    public void user_should_able_to_login_bookit_app_using_and(String email, String password) {
+        Driver.getDriver().get(Environment.URL);
+        loginPage.logIn(newRecordMap.get("email"),newRecordMap.get("password"));
 
     }
+    /*{
+
+    "entryiId": 15525,
+    "entryType": "Student",
+    "message": "user anna zayarny has been added to database."
+
+    }*/
+
+    @Then("User deletes previously created student")
+    public void user_deletes_previously_created_student() {
+        int newStudentId = response.path("entryiId");
+        given().accept(ContentType.JSON)
+                .and().header("Authorization",accessToken)
+                .and().pathParam("id", newStudentId)
+                .when().delete(baseUrl + "/api/students/{id}")
+                .then().statusCode(204).log().all();
+    }
+//    " first-name"     "anna"
+//            "last-name  "  "zayarny"
+//            "email"            "annazayarny18041988@gmail.com"
+//            |"password"        "abc123456789"
+//            "role"             "student-team-leader "
+//            "campus-location"  "VA"
+//            "batch-number"    "8"
+//             "team-name"    "Nukes"
 }
