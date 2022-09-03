@@ -14,4 +14,7 @@ public class DashBoard_MapPage extends BasePage{
     @FindBy(css = "[href='/me']")
     public WebElement selfButton;
 
+    @FindBy(css = "[href='/hunt']")
+    public WebElement huntButton;
+
 }

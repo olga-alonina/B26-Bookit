@@ -1,21 +1,28 @@
 package com.bookit.step_definitions;
 
+import java.util.concurrent.TimeUnit;
+
 import com.bookit.pages.*;
 import com.bookit.utilities.BookItApiUtil;
 import com.bookit.utilities.*;
-import io.cucumber.java.en.And;
-import io.cucumber.java.en.Given;
-import io.cucumber.java.en.Then;
-import io.cucumber.java.en.When;
+import io.cucumber.java.en.*;
 import io.restassured.http.ContentType;
+import io.restassured.module.jsv.JsonSchemaValidator;
 import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.hamcrest.CoreMatchers;
+import org.apache.logging.log4j.*;
 
-import java.util.HashMap;
-import java.util.Map;
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.interactions.Actions;
+
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.Select;
+import org.openqa.selenium.support.ui.WebDriverWait;
+
+
+import java.io.File;
+import java.util.*;
 
 import static org.junit.Assert.*;
 import static io.restassured.RestAssured.*;
@@ -27,11 +34,16 @@ public class BookApiStepDefs {
     LoginPage loginPage = new LoginPage();
     DashBoard_MapPage dashBoard_mapPage = new DashBoard_MapPage();
     MePage mePage = new MePage();
+    HuntPage huntPage = new HuntPage();
+    Hunt2Page hunt2Page = new Hunt2Page();
     public static final Logger LOG = LogManager.getLogger();
     String baseUrl = Environment.BASE_URL;
     String accessToken;
     Response response;
     Map<String, String> newRecordMap;
+    WebDriverWait wait = new WebDriverWait( Driver.getDriver(), 25 );
+
+
 
     @Given("User logged in to Bookit api as teacher role")
     public void user_logged_in_to_Bookit_api_as_teacher_role() {
@@ -189,14 +201,14 @@ public class BookApiStepDefs {
 
         assertThat(newRecordMap.get("first-name"), equalTo(dbStudentMap.get("firstname")));
         assertThat(newRecordMap.get("last-name"), equalTo(dbStudentMap.get("lastname")));
-        assertThat(newRecordMap.get("email"),is(dbStudentMap.get("email")));
-        assertThat(newRecordMap.get("role"),is(dbStudentMap.get("role")));
+        assertThat(newRecordMap.get("email"), is(dbStudentMap.get("email")));
+        assertThat(newRecordMap.get("role"), is(dbStudentMap.get("role")));
     }
 
     @Then("User should able to login bookit app using {string} and {string}")
     public void user_should_able_to_login_bookit_app_using_and(String email, String password) {
         Driver.getDriver().get(Environment.URL);
-        loginPage.logIn(newRecordMap.get("email"),newRecordMap.get("password"));
+        loginPage.logIn(newRecordMap.get("email"), newRecordMap.get("password"));
 
     }
     /*{
@@ -211,17 +223,97 @@ public class BookApiStepDefs {
     public void user_deletes_previously_created_student() {
         int newStudentId = response.path("entryiId");
         given().accept(ContentType.JSON)
-                .and().header("Authorization",accessToken)
+                .and().header("Authorization", accessToken)
                 .and().pathParam("id", newStudentId)
                 .when().delete(baseUrl + "/api/students/{id}")
                 .then().statusCode(204).log().all();
     }
-//    " first-name"     "anna"
-//            "last-name  "  "zayarny"
-//            "email"            "annazayarny18041988@gmail.com"
-//            |"password"        "abc123456789"
-//            "role"             "student-team-leader "
-//            "campus-location"  "VA"
-//            "batch-number"    "8"
-//             "team-name"    "Nukes"
+
+    @Given("User logged in to Bookit api as team lead role")
+    public void user_logged_in_to_Bookit_api_as_team_lead_role() {
+        String email = Environment.LEADER_EMAIL;
+        String password = Environment.LEADER_PASSWORD;
+        LOG.info("Authorizing leader user : email = " + email + ", password = " + password);
+        LOG.info("Environment base url = " + baseUrl);
+
+        accessToken = BookItApiUtil.getAccessToken(email, password);
+    }
+
+    @Then("response should match {string} schema")
+    public void response_should_match_schema(String jsonFileName) {
+        response.then().body(JsonSchemaValidator.matchesJsonSchema(new File(jsonFileName)));
+    }
+
+    @Given("User logged in to Bookit app as team lead role")
+    public void user_logged_in_to_Bookit_app_as_team_lead_role() {
+        Driver.getDriver().get(Environment.URL);
+        loginPage.logIn(Environment.LEADER_EMAIL, Environment.LEADER_PASSWORD);
+    }
+
+    @When("User goes to room hunt page")
+    public void user_goes_to_room_hunt_page() {
+        dashBoard_mapPage.huntButton.click();
+
+    }
+
+    @When("User searches for room with date:")
+    public void user_searches_for_room_with_date(Map<String, String> searchInfoTable) throws InterruptedException {
+        Actions actions = new Actions(Driver.getDriver());
+        //date
+        huntPage.dateField.sendKeys(searchInfoTable.get("date"));
+        //from
+        wait.until( ExpectedConditions.elementToBeClickable(huntPage.fromField));
+        actions.moveToElement(huntPage.fromField).click().perform();
+        for (WebElement each : huntPage.timeList) {
+            if (each.getText().equals(searchInfoTable.get("from"))) {
+                each.click();
+                break;
+            }
+        }
+        //to
+        wait.until( ExpectedConditions.elementToBeClickable(huntPage.toField));
+        actions.moveToElement(huntPage.toField).click().perform();
+        for (WebElement each1 : huntPage.timeList) {
+            if (each1.getText().equals(searchInfoTable.get("to"))) {
+                each1.click();
+                break;
+            }
+        }
+
+        actions.moveToElement(huntPage.searchSign).click().perform();
+        Thread.sleep(6000);
+
+
+    }
+
+    @Then("User should see available rooms")
+    public void user_should_see_available_rooms() {
+        wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("[class='title']")));
+        assertEquals(hunt2Page.freeSpots.getText(), "free spots");
+        assertEquals(hunt2Page.dateTime.getText(), "on 9/4 from 8:00am to 9:00am");
+        System.out.println("***************");
+    }
+
+    @Then("User sends GET request to {string} with:")
+    public void user_sends_GET_request_to_with(String endPoints, Map<String, Object>roomParams) {
+        response = given().accept(ContentType.JSON)
+                .and().queryParams(roomParams)
+                .and().header("Authorization", accessToken)
+                .when().get(baseUrl + endPoints);
+    }
+
+    @Then("available rooms in response should match UI results")
+    public void available_rooms_in_response_should_match_UI_results() {
+        int UIRooms = hunt2Page.amountRoomsUI.size();
+        System.out.println("hunt2Page.amountRoomsUI = " + hunt2Page.amountRoomsUI);
+       List<String>amountRoomsAPI = response.path("name");
+        System.out.println("amountRoomsAPI = " + amountRoomsAPI);
+       int APIRooms = amountRoomsAPI.size();
+       assertEquals(APIRooms, UIRooms);
+    }
+
+    @Then("available rooms in database should match UI and API results")
+    public void available_rooms_in_database_should_match_UI_and_API_results() {
+    }
+
 }
