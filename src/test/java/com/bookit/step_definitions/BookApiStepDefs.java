@@ -1,7 +1,5 @@
 package com.bookit.step_definitions;
 
-import java.util.concurrent.TimeUnit;
-
 import com.bookit.pages.*;
 import com.bookit.utilities.BookItApiUtil;
 import com.bookit.utilities.*;
@@ -12,12 +10,10 @@ import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
 import org.apache.logging.log4j.*;
 
-import org.openqa.selenium.By;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.interactions.Actions;
 
 import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.Select;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 
@@ -35,14 +31,12 @@ public class BookApiStepDefs {
     DashBoard_MapPage dashBoard_mapPage = new DashBoard_MapPage();
     MePage mePage = new MePage();
     HuntPage huntPage = new HuntPage();
-    Hunt2Page hunt2Page = new Hunt2Page();
     public static final Logger LOG = LogManager.getLogger();
     String baseUrl = Environment.BASE_URL;
     String accessToken;
     Response response;
     Map<String, String> newRecordMap;
-    WebDriverWait wait = new WebDriverWait( Driver.getDriver(), 25 );
-
+    WebDriverWait wait = new WebDriverWait(Driver.getDriver(), 25);
 
 
     @Given("User logged in to Bookit api as teacher role")
@@ -257,12 +251,13 @@ public class BookApiStepDefs {
     }
 
     @When("User searches for room with date:")
-    public void user_searches_for_room_with_date(Map<String, String> searchInfoTable) throws InterruptedException {
+    public void user_searches_for_room_with_date(Map<String, String> searchInfoTable) {
         Actions actions = new Actions(Driver.getDriver());
         //date
         huntPage.dateField.sendKeys(searchInfoTable.get("date"));
         //from
-        wait.until( ExpectedConditions.elementToBeClickable(huntPage.fromField));
+       // wait.until(ExpectedConditions.invisibilityOf(huntPage.loadingBar));
+        wait.until( ExpectedConditions.elementToBeClickable(huntPage.fromField));//todo dont delete it
         actions.moveToElement(huntPage.fromField).click().perform();
         for (WebElement each : huntPage.timeList) {
             if (each.getText().equals(searchInfoTable.get("from"))) {
@@ -279,41 +274,56 @@ public class BookApiStepDefs {
                 break;
             }
         }
-
-        actions.moveToElement(huntPage.searchSign).click().perform();
-        Thread.sleep(6000);
+        //search
+        wait.until( ExpectedConditions.elementToBeClickable(huntPage.searchSign));
+        actions.click(huntPage.searchSign).perform();
+        wait.until(ExpectedConditions.textToBePresentInElement(huntPage.headerPageTitle , "free spots"));
 
 
     }
 
     @Then("User should see available rooms")
     public void user_should_see_available_rooms() {
-        wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("[class='title']")));
-        assertEquals(hunt2Page.freeSpots.getText(), "free spots");
-        assertEquals(hunt2Page.dateTime.getText(), "on 9/4 from 8:00am to 9:00am");
-        System.out.println("***************");
+        assertTrue(huntPage.amountRoomsUI.size() > 0);
+
     }
 
     @Then("User sends GET request to {string} with:")
-    public void user_sends_GET_request_to_with(String endPoints, Map<String, Object>roomParams) {
+    public void user_sends_GET_request_to_with(String endPoints, Map<String, String> roomParams) {
+        System.out.println("baseUrl + endPoints = " + baseUrl + endPoints);
+        System.out.println("accessToken = " + accessToken);
         response = given().accept(ContentType.JSON)
                 .and().queryParams(roomParams)
                 .and().header("Authorization", accessToken)
+                .log().all()
                 .when().get(baseUrl + endPoints);
+
     }
 
     @Then("available rooms in response should match UI results")
     public void available_rooms_in_response_should_match_UI_results() {
-        int UIRooms = hunt2Page.amountRoomsUI.size();
-        System.out.println("hunt2Page.amountRoomsUI = " + hunt2Page.amountRoomsUI);
-       List<String>amountRoomsAPI = response.path("name");
+        int UIRooms = huntPage.amountRoomsUI.size();
+        System.out.println("hunt2Page.amountRoomsUI = " + huntPage.amountRoomsUI);
+        List<String> amountRoomsAPI = response.path("name");
         System.out.println("amountRoomsAPI = " + amountRoomsAPI);
-       int APIRooms = amountRoomsAPI.size();
-       assertEquals(APIRooms, UIRooms);
+        int APIRooms = amountRoomsAPI.size();
+        assertEquals(APIRooms, UIRooms);
     }
 
     @Then("available rooms in database should match UI and API results")
     public void available_rooms_in_database_should_match_UI_and_API_results() {
+        String dbPath = "select room.id , room.name , description , capacity , withtv , withwhiteboard \n" +
+                "          from room inner join cluster c on c.id = room.cluster_id \n" +
+                "          where c.name='light-side';";
+        List<Object> freeRoomDB = DBUtils.getColumnData(dbPath, "name");
+        List<String> amountRoomsAPI = response.path("name");
+        List<String>nameRoomUI = new ArrayList<>();
+        for(WebElement each:huntPage.nameRoomsUI){
+            nameRoomUI.add(each.getText());
+        }
+        assertEquals(nameRoomUI, freeRoomDB);
+        assertEquals(amountRoomsAPI, freeRoomDB);
+
     }
 
 }
